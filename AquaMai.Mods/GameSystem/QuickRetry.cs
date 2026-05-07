@@ -67,14 +67,12 @@ public class QuickRetry
 
         foreach (var instruction in instructions)
         {
+            // 直接改 operand 而不是 new，保留原指令上的 labels 和 blocks
             if (instruction.Calls(original))
             {
-                yield return new CodeInstruction(OpCodes.Call, replacement);
+                instruction.operand = replacement;
             }
-            else
-            {
-                yield return instruction;
-            }
+            yield return instruction;
         }
     }
 }
