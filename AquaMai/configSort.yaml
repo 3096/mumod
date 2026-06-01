@@ -101,6 +101,7 @@
   - Fancy.HideMask
   - Tweaks.TimeSaving.CheckSkip
   - Utils.InstantQuit
+  - GameSystem.StartupDirectToGame
   - Fancy.Triggers
 
 过新过热（实验性）:

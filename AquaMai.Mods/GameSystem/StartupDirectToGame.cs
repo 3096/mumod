@@ -17,11 +17,10 @@ using System.Collections;
 namespace AquaMai.Mods.GameSystem;
 
 [ConfigSection(
-    name: "启动直达乐曲",
+    name: "启动直达乐曲", defaultOn: true,
     en: "Launch directly into the song ID specified by --music after startup.",
     zh: "启动流程结束后直接进入通过 --music 传入的歌曲 ID")]
-[EnableIf(nameof(ShouldEnableImplicitly))]
-[EnableImplicitlyIf(nameof(ShouldEnableImplicitly))]
+[EnableIf(nameof(ShouldEnable))]
 public class StartupDirectToGame
 {
     private const byte ReadyState = 8;
@@ -73,7 +72,7 @@ public class StartupDirectToGame
     private static OptionSlidespeedID _slideSpeed;
     private static GameManager.AutoPlayMode _autoplay;
 
-    public static bool ShouldEnableImplicitly
+    public static bool ShouldEnable
     {
         get
         {
