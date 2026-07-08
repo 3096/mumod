@@ -3,13 +3,35 @@ name: AquaMai Build
 on:
   workflow_dispatch:
   push:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read
 
 jobs:
+  build-dependencies:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout build dependencies
+        uses: clansty/checkout@main
+        with:
+          repository: MuNET-OSS/AquaMai-Build-Assets
+          ssh-key: ${{ secrets.BUILD_ASSETS_KEY }}
+          path: build-assets
+          max-attempts: 50
+          min-retry-interval: 1
+          max-retry-interval: 5
+
+      - name: Upload build dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: AquaMai-build-dependencies-${{ github.run_id }}
+          path: |
+            build-assets/SDEZ/AMDaemon.NET.dll
+            build-assets/SDEZ/Assembly-CSharp.dll
+
   build:
+    needs: build-dependencies
     runs-on: windows-latest
     outputs:
       git_describe: ${{ steps.git-describe.outputs.git_describe }}
@@ -19,16 +41,27 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - name: Checkout source
+      - name: Checkout pull request source
+        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: source
+          persist-credentials: false
+
+      - name: Checkout source
+        if: github.event_name != 'pull_request_target'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
 
       - name: Checkout trusted scripts
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.base.repo.full_name }}
@@ -52,13 +85,11 @@ jobs:
           "GIT_DESCRIBE=$raw" >> $env:GITHUB_ENV
           "git_describe=$raw" >> $env:GITHUB_OUTPUT
 
-      - name: Checkout build dependencies
-        uses: actions/checkout@v4
+      - name: Download build dependencies
+        uses: actions/download-artifact@v4
         with:
-          repository: MuNET-OSS/AquaMai-Build-Assets
-          path: source/build-assets
-          sparse-checkout: SDEZ
-          persist-credentials: false
+          name: AquaMai-build-dependencies-${{ github.run_id }}
+          path: source/build-assets/SDEZ
 
       - name: Build AquaMai
         shell: pwsh
@@ -66,7 +97,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path "Libs" -Force | Out-Null
           Copy-Item -Path "build-assets/SDEZ/*" -Destination "Libs" -Force
-          if ("${{ github.event_name }}" -eq "pull_request") {
+          if ("${{ github.event_name }}" -eq "pull_request_target") {
             & ../trusted-source/build.ps1 -SourceRoot .
           } else {
             & ./build.ps1
@@ -82,14 +113,14 @@ jobs:
           Move-Item -Path "Output/AquaMai.en.toml" -Destination "Output/Upload/AquaMai.en.toml" -Force
 
       - name: Upload unsigned artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: AquaMai-unsigned
           path: source/Output/Upload
 
       - name: Upload artifact
-        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        if: github.event_name == 'pull_request_target' || github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: AquaMai
@@ -97,7 +128,7 @@ jobs:
 
   release:
     needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - name: Download unsigned artifact
