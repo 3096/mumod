@@ -244,7 +244,13 @@ public static class Shim
 
     public static readonly Action<bool> Set_GameManager_IsNormalMode = GameInfo.GameVersion < 25500 ? (_) => { } : (value) => { GameManager.IsNormalMode = value; };
     private static readonly Func<bool> IsKaleidxScopeModeGetter = GameInfo.GameVersion < 25000 ? () => false : () => GameManager.IsKaleidxScopeMode;
-    private static readonly Func<int> GetKaleidxScopeGateId = GameInfo.GameVersion is >= 25000 and < 26500 ? () => Singleton<KaleidxScopeManager>.Instance.gateId : () => 0;
+    private static readonly Func<int> GetKaleidxScopeGateId = GameInfo.GameVersion is >= 25000 and < 26500 ? () => 
+    {
+        var type = System.Type.GetType("Manager.KaleidxScopeManager, Assembly-CSharp");
+        if (type == null) return 0;
+        var instance = typeof(MAI2.Util.Singleton<>).MakeGenericType(type).GetProperty("Instance").GetValue(null, null);
+        return Traverse.Create(instance).Field<int>("gateId").Value;
+    } : () => 0;
     public static int KaleidxScopeGateId => GetKaleidxScopeGateId();
     public static bool IsKaleidxScopeMode => IsKaleidxScopeModeGetter();
 }
