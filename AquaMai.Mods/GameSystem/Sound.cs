@@ -41,6 +41,12 @@ public static class Sound
         en: "Music Volume.")]
     private readonly static float musicVolume = 1.0f;
 
+    [ConfigEntry(
+        name: "非游玩状态音量倍率",
+        en: "Global volume multiplier when not actively playing a chart. e.g. 0.5 means 50% volume.",
+        zh: "非打歌状态时全局音量倍率，0.5表示50%音量")]
+    private readonly static float nonPlayVolumeMultiplier = 1.0f;
+
     private static CriAtomUserExtension.AudioClientShareMode AudioShareMode => enableExclusive ? CriAtomUserExtension.AudioClientShareMode.Exclusive : CriAtomUserExtension.AudioClientShareMode.Shared;
 
     private static ushort nChannels => enable8Channel ? (ushort)8 : (ushort)2;
@@ -90,9 +96,19 @@ public static class Sound
         int startTime,
         ref float volume)
     {
-        if (acbID == SoundManager.AcbID.Music && playerID == SoundManager.PlayerID.Music)
+        bool isMusic = acbID == SoundManager.AcbID.Music && playerID == SoundManager.PlayerID.Music;
+        if (isMusic)
         {
             volume = musicVolume;
+        }
+
+        // cueID 0 is the full chart BGM. cueID 1 is the preview BGM.
+        // We must exempt the full chart BGM because it is started during the process initialization,
+        // right BEFORE GameManager.IsInGame is set to true.
+        bool isPlayChartBGM = isMusic && cueID == 0 && !GameManager.IsAdvDemo;
+        if (!GameManager.IsInGame && !isPlayChartBGM)
+        {
+            volume = (volume < 0f ? 1.0f : volume) * nonPlayVolumeMultiplier;
         }
     }
 }
